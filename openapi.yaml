@@ -1,0 +1,64 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Sample API
+  description: A sample API to illustrate OpenAPI concepts
+servers:
+  - url: http://127.0.0.1:5000
+paths:
+  /api/student/<student_nummer>/statement:
+    get:
+      description: Geeft een volgende twee stellingen terug
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              examples:
+                question:
+                  value: |
+                    {
+                      "statement_number": 1,
+                      "statement_choices": [
+                        {
+                            "choice_number": 1,
+                            "choice_text": "Stelling 1"
+                        }, {
+                            "keuze_id": 2,
+                            "stelling": "Stelling 2"
+                        }
+                      ]
+                    }
+        '404':
+          description: Studentnummer bestaat niet
+        '409':
+          description: Geen stellingen meer beschikbaar
+  /api/student/<student_nummer>/statement/<stelling_id>:
+    post:
+      description: Slaat de keuze van een stelling op
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                statement_choice:
+                  type: integer
+              required:
+                - statement_choice
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              examples:
+                question:
+                  value: |
+                    {
+                      "result": "ok"
+                    }
+        '404':
+          description: Studentnummer of stelling bestaat niet
+        '409':
+          description: Stelling is al opgeslagen

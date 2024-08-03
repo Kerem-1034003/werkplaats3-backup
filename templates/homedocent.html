@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+    <title>Persoonlijke vorming</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #navbarNavDropdown {
+            justify-content: flex-end;
+        }
+
+        #studentList {
+            width: 80%;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container">
+    <a class="navbar-brand" href="{{url_for('home')}}">Actiontypes</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="{{url_for('home')}}">Home</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{url_for('homestudent')}}">Studenten</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<body>
+
+  <div class="container">
+    <h1 class="text-center">Studenten Overzicht</h1>
+
+    <h4>Nieuwe Student Toevoegen</h4>
+    <form action="/add_student" method="post" class="row g-3">
+        <div class="col-md-3 mb-3">
+            <label for="student_number" class="form-label">Studentnummer:</label>
+            <input type="text" class="form-control" id="student_number" name="student_number">
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="name" class="form-label">Naam:</label>
+            <input type="text" class="form-control" id="name" name="name">
+        </div>
+        <div class="col-md-3 mb-3">
+            <label for="class" class="form-label">Klas:</label>
+            <input type="text" class="form-control" id="class" name="class">
+        </div>
+        <div class="col-md-3 mb-3">
+            <button type="submit" class="btn btn-primary">Toevoegen</button>
+        </div>
+    </form>
+
+    <div class="mb-3">
+        <h4>Filter</h4>
+        <label for="searchInput" class="form-label">Zoeken:</label>
+        <input type="text" class="form-control" id="searchInput" oninput="filterStudents()" placeholder="Studentnummer, Naam of Klas">
+    </div>
+
+    <div id="studentList">
+        <h4>Overizcht studenten</h4>
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Studentnummer</th>
+                    <th>Naam</th>
+                    <th>Klas</th>
+                    <th>Action Type</th>
+                    <th>Ingevuld</th>
+                    <th>Team</th>
+                    <th>Verwijder Antwoorden</th>
+                    <th>Detail</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+
+<script>
+    fetch('/api/students')
+    .then(response => response.json())
+    .then(data => {
+        const studentList = document.querySelector('#studentList tbody');
+
+        data.forEach(student => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${student.student_number}</td>
+                <td>${student.name}</td>
+                <td>${student.class}</td>
+                <td>${student.action_type || '-'}</td>
+                <td id="last-answer-date-${student.student_number}">Laden...</td>
+                <td>${student.team|| '-'}</td>
+                <td><button class="btn btn-danger" onclick="deleteAnswers(${student.student_number})">Verwijder Antwoorden</button></td>
+                <td><a href="/detail" class="btn">Wijzig</a></td>
+            `;
+            studentList.appendChild(row);
+            getLastAnswerDate(student.student_number);
+        });
+    })
+    .catch(error => console.error('Error fetching students:', error));
+
+    function deleteAnswers(studentNumber) {
+        fetch(`/api/students/${studentNumber}/answers`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (response.ok) {
+                // Verwijder de rij uit de tabel
+                const rowToDelete = document.getElementById(`student-${studentNumber}`);
+                rowToDelete.remove();
+            } else {
+                throw new Error('Verwijderen van antwoorden mislukt');
+            }
+        })
+        .catch(error => console.error('Error deleting student answers:', error));
+    }
+
+    function filterStudents() {
+        const searchText = document.getElementById('searchInput').value.toLowerCase();
+        const studentRows = document.querySelectorAll('#studentList tbody tr');
+
+        studentRows.forEach(row => {
+            const studentNumber = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
+            const studentName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+            const studentclass = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+            if (studentNumber.includes(searchText) || studentName.includes(searchText) || studentclass.includes(searchText)) {
+                row.style.display = ''; // Laat de rij zien als het zoekresultaat overeenkomt
+            } else {
+                row.style.display = 'none'; // Verberg de rij als het zoekresultaat niet overeenkomt
+            }
+        });
+    }
+
+    function getLastAnswerDate(studentNumber) {
+    fetch(`/api/student/last_answer_date/${studentNumber}`)
+    .then(response => response.json())
+    .then(data => {
+        const lastAnswerDateElement = document.getElementById(`last-answer-date-${studentNumber}`);
+        lastAnswerDateElement.textContent = data.last_answer_date || '-';
+    })
+    .catch(error => console.error(`Fout bij het ophalen van de laatste beantwoorde stelling datum voor student ${studentNumber}:`, error));
+}
+
+</script>
+
+</body>
+</html>

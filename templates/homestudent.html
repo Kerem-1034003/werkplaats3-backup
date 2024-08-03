@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Action Types - Student Formulier</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<nav class="navbar bg-light">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('home') }}">Persoonlijke vorming</a>
+      <div class="d-flex flex-wrap justify-content-center py-1 mb-1" id="navbarNavDropdown">
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{{ url_for('home') }}">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('login') }}">Docenten</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+<body>
+    <h1>Action Types - Student Formulier</h1>
+    
+    <form id="student-form">
+        <label for="student-number">Voer je studentnummer in:</label>
+        <input type="text" id="student-number" name="student-number">
+        <button type="submit">Volgende Vraag</button>
+    </form>
+    <div id="student-info"></div>
+    <div id="statements"></div>
+    
+
+    <script>
+  
+        $(document).ready(function() {
+            var studentNumber;
+            var currentStatementIndex = 0; // Houdt de index bij van het huidige tweetal statements
+
+            $('#student-form').submit(function(event) {
+                event.preventDefault(); // Voorkomt standaardgedrag van formulierinzending
+                studentNumber = $('#student-number').val(); // Haalt de waarde van het studentnummer op
+                fetchStudentInfo(studentNumber);  // Haal studentnaam en klas op
+                fetchStatements(studentNumber); // Roept de functie aan om stellingen op te halen
+            });
+
+            function fetchStatements(studentNumber) {
+                $.ajax({
+                    type: 'GET',
+                    url: `/api/student/${studentNumber}/statement`,
+                    success: function(data) {
+                        displayNextStatementPair(data); // Roept de functie aan om het eerste tweetal stellingen weer te geven bij succesvol ophalen
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Er is een fout opgetreden bij het ophalen van de stellingen.'); // Geeft een foutmelding bij een fout tijdens het ophalen van stellingen
+                    }
+                });
+            }
+
+            function displayNextStatementPair(statements) {
+                var statementContainer = $('#statements'); // Selecteert de container voor stellingen
+                statementContainer.empty(); 
+
+                // Controleert of er nog statements over zijn om weer te geven
+                if (currentStatementIndex < statements.length -1) {
+                    // Haalt de volgende twee stellingen op
+                    var statementPair = statements.slice(currentStatementIndex, currentStatementIndex + 2);
+
+                    statementPair.forEach(function(statement, index) { 
+                        var choiceNumber = index + 1; // Keuze nummer (1 of 2)
+                        var statementHtml = `
+                            <div>
+                                <button class="choice" data-statement="${statement.statement_number}" data-choice="${choiceNumber}">${statement.choice_text}</button>
+                            </div>
+                        `; 
+                        statementContainer.append(statementHtml); 
+                    });
+
+                    currentStatementIndex += 0; // Verhoogt de index om naar het volgende tweetal statements te gaan
+                }// else {
+                    // Roep de functie aan om alle stellingen te beantwoorden nadat het laatste statement is bereikt
+                //    answerAllStatements(studentNumber);
+           // }
+        }
+        
+        $(document).on('click', '.choice', function() {
+            var statementNumber = $(this).data('statement');
+            var choiceNumber = $(this).data('choice');
+            var choiceResult = getChoiceResult(statementNumber, choiceNumber); // Get choice result
+            saveChoice(studentNumber, statementNumber, choiceNumber, choiceResult); // Pass choice result to function
+        });
+
+        function getChoiceResult(statementNumber, choiceNumber) {
+    if ([1, 5, 9, 13, 17].includes(statementNumber)) {
+        return choiceNumber === 1 ? 'E' : 'I'; // Extraversion (E) of Introversion (I)
+    } else if ([2, 6, 10, 14, 18].includes(statementNumber)) {
+        return choiceNumber === 1 ? 'S' : 'N'; // Sensing (S) of Intuition (N)
+    } else if ([3, 7, 11, 15, 19].includes(statementNumber)) {
+        return choiceNumber === 1 ? 'T' : 'F'; // Thinking (T) of Feeling (F)
+    } else if ([4, 8, 12, 16, 20].includes(statementNumber)) {
+        return choiceNumber === 1 ? 'J' : 'P'; // Judging (J) of Perceiving (P)
+    }
+}
+
+        function saveChoice(studentNumber, statementNumber, choiceNumber, choiceResult) {
+            $.ajax({
+            type: 'POST',
+            url: `/api/student/${studentNumber}/statement/${statementNumber}`,
+            contentType: 'application/json',
+            data: JSON.stringify({ "choice_number": choiceNumber, "choice_result": choiceResult }), // Include choice result in data
+            success: function(response) {
+                console.log("Save choice response:", response);
+                if (currentStatementIndex >= response.length) {
+                    alert('Alle stellingen zijn afgerond.');
+                } else {
+                    displayNextStatementPair(response);
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Er is een fout opgetreden bij het opslaan van de keuze.');
+            }
+            });
+
+        }
+
+        function fetchStudentInfo(studentNumber) {
+                $.ajax({
+                    type: 'GET',
+                    url: `/api/student/${studentNumber}/info`,
+                    success: function(data) {
+                        // Voeg de ontvangen studentinformatie toe aan de HTML
+                        $('#student-info').html(`<p>Naam: ${data.name}</p><p>Klas: ${data.class}</p>`);
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Ongeldig StudentNummer.');
+                    }
+                });
+        }
+
+        function answerAllStatements(studentNumber) {
+    $.ajax({
+        type: 'GET',
+        url: `/api/student/${studentNumber}/statement`,
+        success: function(data) {
+            console.log("All statements data:", data); // Debug-uitvoer om de data te controleren die wordt opgehaald
+            if (data.length === 0) {
+                $.ajax({
+                    type: 'POST',
+                    url: `/api/student/${studentNumber}/actiontype`,
+                    success: function(response) {
+                        console.log("Action type response:", response); // Debug-uitvoer om de AJAX-respons voor het actiontype te controleren
+                        alert(response.success);
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Er is een fout opgetreden bij het berekenen en opslaan van het Action Type.');
+                    }
+                });
+            } else {
+                alert('Nog niet alle stellingen zijn beantwoord.');
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Er is een fout opgetreden bij het ophalen van de stellingen.');
+        }
+    });
+}
+
+    });
+
+    </script>
+</body>
+</html>
